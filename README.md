@@ -52,7 +52,8 @@ The app and the notes are separate files.
 
 - One file, no dependencies, plain JavaScript. View Source is the documentation
 - Notes are stored in your browser (IndexedDB), they never leave your machine. Export once in a while if they matter to you
-- Tested mostly in Chrome and Edge, anything Chromium-based should be fine
+- Tested mostly in Firefox, plus Chrome and Edge. Anything modern should be fine
+- Firefox quirk: notes are tied to where the file sits on disk, so keep `BroNote.html` in one place. If you move it and your notes seem gone, move it back
 
 ## Contributing
 
