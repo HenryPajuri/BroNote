@@ -2,6 +2,8 @@
 
 A note-taking app in a single HTML file. No install, no account, no cloud, no subscription. You double-click the file and write.
 
+**[Try it in your browser](https://henrypajuri.github.io/BroNote/BroNote.html)** or grab `BroNote.html` from the [latest release](https://github.com/HenryPajuri/BroNote/releases/latest).
+
 Made it because Word felt like overkill for keeping Pathfinder campaign notes. It doesn't care what you use it for.
 
 > How much is the subscription? "Nothing, that's the best part."
