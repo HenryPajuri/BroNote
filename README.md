@@ -4,7 +4,7 @@ A note-taking app in a single HTML file. No install, no account, no cloud, no su
 
 Made it because Word felt like overkill for keeping Pathfinder campaign notes. It doesn't care what you use it for.
 
-> Palju subscription on? "Nothing, that's the best part."
+> How much is the subscription? "Nothing, that's the best part."
 
 ![Character page](screenshots/character.png)
 
