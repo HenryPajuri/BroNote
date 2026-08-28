@@ -1,0 +1,2316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BroNote</title>
+<style>
+  :root{
+    --bg:#f6f5f2; --panel:#ffffff; --ink:#2b2a27; --muted:#8a877f;
+    --line:#e6e3dc; --accent:#3b6ea5; --accent-soft:#eaf1f8;
+    --pagePad:48px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:Georgia, "Times New Roman", serif;
+    background:var(--bg); color:var(--ink);
+    display:flex; overflow:hidden;
+  }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    width:230px; min-width:230px; height:100vh;
+    background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column;
+  }
+  #sidebar .brand{
+    padding:18px 16px 12px;
+    font-size:20px; font-weight:bold; letter-spacing:.5px;
+  }
+  #sidebar .brand span{color:var(--accent);}
+  #searchWrap{padding:2px 12px 8px;}
+  #searchBox{
+    width:100%; padding:7px 10px; font-family:inherit; font-size:14px;
+    border:1px solid var(--line); border-radius:8px;
+    background:var(--bg); color:var(--ink); outline:none;
+  }
+  #searchBox:focus{border-color:var(--accent); background:var(--panel);}
+  #pageList{flex:1; overflow-y:auto; padding:4px 8px;}
+  .pageItem{
+    display:flex; align-items:center; gap:3px;
+    padding:8px 8px; margin:2px 0; border-radius:8px;
+    cursor:pointer; font-size:15px; color:var(--ink);
+    border:1px solid transparent;
+  }
+  .pageItem:hover{background:var(--bg);}
+  .pageItem.active{background:var(--accent-soft); border-color:#d3e2f0;}
+  .pageItem .name{
+    flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    min-width:44px; /* the name must survive the hover buttons appearing */
+  }
+  .pageItem .twist{
+    width:14px; min-width:14px; border:none; background:none;
+    color:var(--muted); font-size:11px; padding:0; cursor:pointer;
+    text-align:center; flex-shrink:0;
+  }
+  .pageItem span.twist{cursor:default;}
+  .pageItem .twist:hover{color:var(--accent);}
+  .pageItem .del, .pageItem .savePage, .pageItem .addSub,
+  .pageItem .pinBtn, .pageItem .promote{
+    border:none; background:none; color:var(--muted);
+    font-size:12px; cursor:pointer; padding:2px 1px; border-radius:4px;
+    flex-shrink:0;
+    display:none; /* hidden controls must not eat the name's space */
+  }
+  .pageItem:hover .del, .pageItem:hover .savePage, .pageItem:hover .addSub,
+  .pageItem:hover .pinBtn, .pageItem:hover .promote{display:inline-block;}
+  .pageItem .promote:hover{color:var(--accent); background:var(--accent-soft);}
+  .pageItem.pinnedItem .pinBtn{display:inline-block; color:var(--accent);}
+  .pageItem .pinBtn:hover{color:var(--accent); background:var(--accent-soft);}
+  .pageItem.dropBefore{box-shadow:0 -2px 0 var(--accent);}
+  .pageItem.dropAfter{box-shadow:0 2px 0 var(--accent);}
+  .pageItem .del:hover{color:#b0413e; background:#f7e8e7;}
+  .pageItem .savePage:hover, .pageItem .addSub:hover{color:var(--accent); background:var(--accent-soft);}
+  .pageItem.sub{
+    font-size:14px;
+    border-left:2px solid var(--line); border-radius:0 8px 8px 0;
+  }
+  .pageItem.sub.active{border-left-color:var(--accent);}
+  .pageItem.dropInto{background:var(--accent-soft); border-color:var(--accent);}
+  #addPage{
+    margin:10px; padding:9px;
+    border:1px dashed var(--line); border-radius:8px;
+    background:none; color:var(--muted); font-size:14px;
+    cursor:pointer; font-family:inherit;
+  }
+  #addPage:hover{color:var(--accent); border-color:var(--accent);}
+  #backupRow{
+    display:flex; gap:6px; padding:0 10px;
+  }
+  #backupRow button{
+    flex:1; padding:7px 0;
+    border:1px solid var(--line); border-radius:8px;
+    background:none; color:var(--muted); font-size:13px;
+    cursor:pointer; font-family:inherit;
+  }
+  #backupRow button:hover{color:var(--accent); border-color:var(--accent);}
+  #saveStatus{
+    padding:8px 16px 14px; font-size:12px; color:var(--muted);
+    font-family:Verdana, sans-serif;
+  }
+  #importInput{display:none;}
+
+  /* ---------- Main ---------- */
+  #main{flex:1; display:flex; flex-direction:column; height:100vh;}
+
+  #toolbar{
+    display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+    padding:10px 24px; background:var(--panel);
+    border-bottom:1px solid var(--line);
+  }
+  #toolbar button{
+    font-family:Verdana, sans-serif; font-size:13px;
+    border:1px solid var(--line); background:var(--panel); color:var(--ink);
+    padding:6px 11px; border-radius:7px; cursor:pointer;
+  }
+  #toolbar button:hover{background:var(--accent-soft); border-color:#c8dbee;}
+  #toolbar button.on{
+    background:var(--accent-soft); border-color:var(--accent); color:var(--accent);
+  }
+  #toolbar .sep{width:1px; height:22px; background:var(--line); margin:0 6px;}
+  #toolbar .b{font-weight:bold;}
+  #toolbar .i{font-style:italic;}
+  #toolbar .u{text-decoration:underline;}
+  #toolbar button svg{display:block; width:15px; height:13px;}
+  #toolbar button svg line{stroke:var(--ink); stroke-width:1.6; stroke-linecap:round;}
+  #headingJump, #fontSizeInp{
+    font-family:Verdana, sans-serif; font-size:12px;
+    padding:6px 8px; border:1px solid var(--line); border-radius:7px;
+    background:var(--panel); color:var(--muted); max-width:190px;
+  }
+  #headingJump{margin-left:auto; cursor:pointer;}
+  #fontSizeInp{width:62px; color:var(--ink); outline:none;}
+  #headingJump:hover, #fontSizeInp:hover, #fontSizeInp:focus{border-color:var(--accent);}
+  /* the "held" selection painted while the size box has focus */
+  ::highlight(heldSelection){ background:rgba(59,110,165,.30); }
+
+  #scroll{flex:1; overflow-y:auto;}
+  #page{
+    max-width:760px; margin:28px auto 70px; padding:36px var(--pagePad) 56px;
+    background:var(--panel); border-radius:14px;
+    box-shadow:0 2px 16px rgba(0,0,0,.06);
+  }
+  /* A page break: the sheet ends, the desk shows through, a new sheet starts */
+  #editor hr.pageBreak{
+    border:none; height:46px; background:var(--bg);
+    margin:34px calc(-1 * var(--pagePad));
+  }
+  #pageTitle{
+    font-size:34px; font-weight:bold; outline:none;
+    border-bottom:2px solid var(--line);
+    padding-bottom:10px; margin-bottom:24px;
+    overflow-wrap:anywhere; word-break:break-word;
+  }
+  #pageTitle:empty::before{content:"Untitled page"; color:var(--muted);}
+  #pageTitle.isSub:empty::before{content:"Untitled subpage";}
+
+  #editor{
+    outline:none; font-size:17px; line-height:1.65; min-height:50vh;
+    overflow-wrap:anywhere; word-break:break-word;
+  }
+  #editor a{color:var(--accent); text-decoration:underline; cursor:pointer;}
+  #editor:empty::before{content:"Start writing…"; color:var(--muted);}
+  #editor h1{font-size:28px; margin:22px 0 8px;}
+  #editor h2{font-size:23px; margin:18px 0 6px;}
+  #editor h3{font-size:19px; margin:14px 0 4px; color:#4a4844;}
+  #editor p, #editor div{margin:6px 0;}
+  #editor ul, #editor ol{margin:8px 0 8px 28px;}
+  #editor figure{
+    margin:20px auto; text-align:center; max-width:100%;
+  }
+  #editor figure img{
+    max-width:100%; border-radius:10px;
+    box-shadow:0 2px 12px rgba(0,0,0,.12);
+  }
+  #editor .imgWrap{
+    position:relative; display:inline-block; max-width:100%;
+  }
+  #editor .imgWrap img{display:block;}
+  #editor .delImg{
+    position:absolute; top:10px; right:10px;
+    width:28px; height:28px; border-radius:50%;
+    border:none; background:rgba(43,42,39,.55); color:#fff;
+    font-size:13px; line-height:28px; text-align:center;
+    cursor:pointer; display:none; padding:0;
+  }
+  #editor figure:hover .delImg{display:block;}
+  #editor .delImg:hover{background:#b0413e;}
+  #editor .resizeImg{
+    position:absolute; right:6px; bottom:6px;
+    width:20px; height:20px; border-radius:5px;
+    background:rgba(43,42,39,.55);
+    background-image:linear-gradient(135deg,
+      transparent 42%, #fff 42%, #fff 50%, transparent 50%,
+      transparent 64%, #fff 64%, #fff 72%, transparent 72%);
+    cursor:nwse-resize; display:none; touch-action:none;
+  }
+  #editor figure:hover .resizeImg{display:block;}
+  #editor figcaption{
+    font-size:14px; color:var(--muted); margin-top:8px;
+    font-style:italic; outline:none;
+  }
+  #editor figcaption:empty::before{content:"Write a caption…";}
+  #editor hr{border:none; border-top:2px dashed var(--line); margin:26px 0;}
+
+  #imgInput{display:none;}
+
+  /* ---------- Phone / tablet ---------- */
+  #menuBtn{display:none;}
+  #backdrop{
+    position:fixed; inset:0; background:rgba(43,42,39,.3);
+    z-index:39; display:none;
+  }
+  #backdrop.show{display:block;}
+  @media (max-width: 760px){
+    :root{ --pagePad:16px; }
+    #sidebar{
+      position:fixed; left:0; top:0; bottom:0; z-index:40;
+      transform:translateX(-105%);
+      box-shadow:4px 0 24px rgba(0,0,0,.18);
+    }
+    body.anim #sidebar{transition:transform .2s ease;}
+    #sidebar.open{transform:translateX(0);}
+    #menuBtn{display:inline-block;}
+    #toolbar{padding:8px 10px; gap:3px;}
+    #page{margin:10px 8px 40px; border-radius:10px; padding-top:22px;}
+    #pageTitle{font-size:26px;}
+    #editor{font-size:16px;}
+  }
+  /* Touch screens have no hover: show controls on the open page's card */
+  @media (hover: none){
+    .pageItem.active .del, .pageItem.active .savePage, .pageItem.active .addSub,
+    .pageItem.active .pinBtn, .pageItem.active .promote{display:inline-block;}
+    #editor .delImg, #editor .resizeImg{display:block;}
+  }
+
+  /* ---------- Dialogs ---------- */
+  #overlay{
+    position:fixed; inset:0; display:none;
+    align-items:center; justify-content:center;
+    background:rgba(43,42,39,.35); z-index:50;
+  }
+  #overlay.open{display:flex;}
+  #dialogBox{
+    background:var(--panel); border-radius:14px;
+    padding:22px 24px 18px; width:min(360px, 85vw);
+    box-shadow:0 12px 40px rgba(0,0,0,.25);
+    animation:pop .14s ease;
+  }
+  @keyframes pop{
+    from{transform:scale(.94); opacity:0;}
+    to{transform:scale(1); opacity:1;}
+  }
+  #dialogMsg{
+    font-size:16px; line-height:1.55;
+    white-space:pre-line; margin-bottom:20px;
+  }
+  #dialogInput{
+    display:none; width:100%; padding:8px 10px; margin:-8px 0 18px;
+    font-family:Verdana, sans-serif; font-size:13px;
+    border:1px solid var(--line); border-radius:8px; outline:none;
+    background:var(--bg); color:var(--ink);
+  }
+  #dialogInput:focus{border-color:var(--accent); background:#fff;}
+  #dialogBtns{display:flex; justify-content:flex-end; gap:8px;}
+  #dialogBtns button{
+    font-family:Verdana, sans-serif; font-size:13px;
+    padding:8px 18px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel); color:var(--ink);
+  }
+  #dialogCancel:hover{background:var(--bg);}
+  #dialogOk{background:var(--accent); border-color:var(--accent); color:#fff;}
+  #dialogOk:hover{background:#33608f;}
+  #dialogOk.danger{background:#b0413e; border-color:#b0413e;}
+  #dialogOk.danger:hover{background:#9a3835;}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="brand">Bro<span>Note</span></div>
+  <div id="searchWrap"><input id="searchBox" type="text" placeholder="Search pages&hellip;"></div>
+  <div id="pageList"></div>
+  <button id="addPage">+ New page</button>
+  <div id="backupRow">
+    <button id="exportBtn" title="Save all notes to a backup file">&#8595; Export</button>
+    <button id="importBtn" title="Load notes from a backup file">&#8593; Import</button>
+  </div>
+  <div id="saveStatus">Saved</div>
+</div>
+
+<div id="main">
+  <div id="toolbar">
+    <button id="menuBtn" title="Pages">&#9776;</button>
+    <button data-cmd="undo" title="Undo (Ctrl+Z)">&#8630;</button>
+    <button data-cmd="redo" title="Redo (Ctrl+Y)">&#8631;</button>
+    <div class="sep"></div>
+    <button data-cmd="formatBlock" data-val="h1" title="Big heading">H1</button>
+    <button data-cmd="formatBlock" data-val="h2" title="Medium heading">H2</button>
+    <button data-cmd="formatBlock" data-val="h3" title="Small heading">H3</button>
+    <button data-cmd="formatBlock" data-val="p" title="Normal text">Text</button>
+    <div class="sep"></div>
+    <button class="b" data-cmd="bold" title="Bold (Ctrl+B)">B</button>
+    <button class="i" data-cmd="italic" title="Italic (Ctrl+I)">I</button>
+    <button class="u" data-cmd="underline" title="Underline (Ctrl+U)">U</button>
+    <input id="fontSizeInp" type="number" min="6" max="96" placeholder="Size"
+           title="Text size in points, same as Word — type a number and press Enter">
+    <button id="linkBtn" title="Insert link (Ctrl+K)">&#128279; Link</button>
+    <div class="sep"></div>
+    <button data-cmd="insertUnorderedList" title="Bullet list">&bull; List</button>
+    <button data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+    <div class="sep"></div>
+    <button data-cmd="justifyLeft" title="Align left (Ctrl+L)">
+      <svg viewBox="0 0 15 13"><line x1="1" y1="2" x2="14" y2="2"/><line x1="1" y1="6.5" x2="9" y2="6.5"/><line x1="1" y1="11" x2="12" y2="11"/></svg>
+    </button>
+    <button data-cmd="justifyCenter" title="Center (Ctrl+E)">
+      <svg viewBox="0 0 15 13"><line x1="1" y1="2" x2="14" y2="2"/><line x1="3.5" y1="6.5" x2="11.5" y2="6.5"/><line x1="2" y1="11" x2="13" y2="11"/></svg>
+    </button>
+    <button data-cmd="justifyRight" title="Align right (Ctrl+R)">
+      <svg viewBox="0 0 15 13"><line x1="1" y1="2" x2="14" y2="2"/><line x1="6" y1="6.5" x2="14" y2="6.5"/><line x1="3" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <button data-cmd="justifyFull" title="Justify (Ctrl+J)">
+      <svg viewBox="0 0 15 13"><line x1="1" y1="2" x2="14" y2="2"/><line x1="1" y1="6.5" x2="14" y2="6.5"/><line x1="1" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <div class="sep"></div>
+    <button id="imgBtn" title="Insert a picture with a caption">&#128247; Image</button>
+    <button id="dividerBtn" title="Insert a divider line — end a section, start fresh">&mdash; Divider</button>
+    <button id="pageBreakBtn" title="End this sheet and start a fresh one below">&#9645; Page break</button>
+    <select id="headingJump" title="Jump to a heading on this page"></select>
+  </div>
+
+  <div id="scroll">
+    <div id="page">
+      <div id="pageTitle" contenteditable="true" spellcheck="false"></div>
+      <div id="editor" contenteditable="true"></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="imgInput" accept="image/*">
+<input type="file" id="importInput" accept=".json,application/json">
+
+<div id="backdrop"></div>
+
+<div id="overlay">
+  <div id="dialogBox">
+    <div id="dialogMsg"></div>
+    <input id="dialogInput" type="text" spellcheck="false">
+    <div id="dialogBtns">
+      <button id="dialogCancel">Cancel</button>
+      <button id="dialogOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var STORE_KEY = "bronote-data-v1";
+  var pageListEl = document.getElementById("pageList");
+  var titleEl    = document.getElementById("pageTitle");
+  var editorEl   = document.getElementById("editor");
+  var statusEl   = document.getElementById("saveStatus");
+  var imgInput   = document.getElementById("imgInput");
+
+  // ---------- Sidebar drawer on small screens ----------
+  var sidebarEl = document.getElementById("sidebar");
+  var backdropEl = document.getElementById("backdrop");
+  function closeSidebar(){
+    sidebarEl.classList.remove("open");
+    backdropEl.classList.remove("show");
+  }
+  document.getElementById("menuBtn").onclick = function(){
+    var open = sidebarEl.classList.toggle("open");
+    backdropEl.classList.toggle("show", open);
+  };
+  backdropEl.onclick = closeSidebar;
+  // enable the drawer animation only after first paint (no slide-in flash on load)
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){ document.body.classList.add("anim"); });
+  });
+
+  // ---------- Dialogs (prettier confirm/alert) ----------
+  var overlay = document.getElementById("overlay");
+  var dialogMsg = document.getElementById("dialogMsg");
+  var dialogOk = document.getElementById("dialogOk");
+  var dialogCancel = document.getElementById("dialogCancel");
+
+  var dialogInput = document.getElementById("dialogInput");
+
+  function dialog(message, opts){
+    opts = opts || {};
+    return new Promise(function(resolve){
+      dialogMsg.textContent = message;
+      dialogOk.textContent = opts.okText || "OK";
+      dialogOk.className = opts.danger ? "danger" : "";
+      dialogCancel.style.display = opts.alert ? "none" : "";
+      dialogInput.style.display = opts.input ? "block" : "none";
+      if (opts.input){
+        dialogInput.value = opts.input.value || "";
+        dialogInput.placeholder = opts.input.placeholder || "";
+      }
+      overlay.classList.add("open");
+      if (opts.input){ dialogInput.focus(); dialogInput.select(); }
+      else dialogOk.focus();
+      function close(val){
+        overlay.classList.remove("open");
+        document.removeEventListener("keydown", onKey);
+        // with an input, resolve its text on OK and null on cancel
+        resolve(opts.input ? (val ? dialogInput.value : null) : val);
+      }
+      function onKey(e){
+        if (e.key === "Escape"){ e.preventDefault(); close(false); }
+        if (e.key === "Enter"){ e.preventDefault(); close(true); }
+      }
+      dialogOk.onclick = function(){ close(true); };
+      dialogCancel.onclick = function(){ close(false); };
+      overlay.onclick = function(e){ if (e.target === overlay) close(false); };
+      document.addEventListener("keydown", onKey);
+    });
+  }
+  function notice(message){ return dialog(message, { alert: true }); }
+
+  // ---------- Data ----------
+  // Notes live in IndexedDB — the browser's built-in database. Unlike
+  // localStorage (5 MB), it holds gigabytes, so image-heavy notes are fine.
+  var data = { pages: [], lastOpen: null };
+  var currentId = null;
+  var db = null;
+
+  function openDB(){
+    return new Promise(function(resolve, reject){
+      var req = indexedDB.open("bronote", 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore("kv"); };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }
+  function dbGet(key){
+    return new Promise(function(resolve, reject){
+      var req = db.transaction("kv").objectStore("kv").get(key);
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }
+  function dbSet(key, val){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(val, key);
+      tx.oncomplete = function(){ resolve(); };
+      tx.onerror = function(){ reject(tx.error); };
+    });
+  }
+
+  function loadLocalStorage(){
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e){}
+    return null;
+  }
+
+  var saveTimer = null;
+  function save(){
+    statusEl.textContent = "Saving…";
+    scheduleRecord();
+    fillHeadingJump(); // keep the jump list current instead of rebuilding mid-click
+    refreshToolbarState();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      data.lastOpen = currentId;
+      if (db){
+        dbSet("data", data).then(function(){
+          statusEl.textContent = "Saved";
+        }).catch(function(){
+          statusEl.textContent = "Could not save";
+        });
+      } else {
+        // fallback for browsers without IndexedDB
+        try {
+          localStorage.setItem(STORE_KEY, JSON.stringify(data));
+          statusEl.textContent = "Saved";
+        } catch(e) {
+          statusEl.textContent = "Storage full — remove some images";
+        }
+      }
+    }, 400);
+  }
+
+  function getPage(id){
+    for (var i = 0; i < data.pages.length; i++)
+      if (data.pages[i].id === id) return data.pages[i];
+    return null;
+  }
+
+  function addPage(title, parentId){
+    var p = { id: "p" + Date.now() + Math.floor(Math.random()*1000),
+              title: title || "", body: "", parentId: parentId || null };
+    data.pages.push(p);
+    currentId = p.id;
+    return p;
+  }
+
+  function subsOf(id){
+    return data.pages.filter(function(c){ return c.parentId === id; });
+  }
+
+  function descendantsOf(id, seen){
+    seen = seen || {};
+    var out = [];
+    subsOf(id).forEach(function(c){
+      if (seen[c.id]) return; // guard against corrupt circular data
+      seen[c.id] = true;
+      out.push(c);
+      out = out.concat(descendantsOf(c.id, seen));
+    });
+    return out;
+  }
+
+  function isDescendant(page, ancestorId){
+    var n = page, guard = 0;
+    while (n && n.parentId && guard++ < 100){
+      if (n.parentId === ancestorId) return true;
+      n = getPage(n.parentId);
+    }
+    return false;
+  }
+
+  // ---------- Rendering ----------
+  var draggingPageId = null;
+
+  function dropZoneAt(e, item){
+    var rect = item.getBoundingClientRect();
+    var yr = (e.clientY - rect.top) / rect.height;
+    return yr < 0.33 ? "before" : (yr > 0.67 ? "after" : "into");
+  }
+
+  function clearDropMarks(){
+    Array.from(pageListEl.querySelectorAll(".dropBefore, .dropAfter, .dropInto"))
+      .forEach(function(el){
+        el.classList.remove("dropBefore", "dropAfter", "dropInto");
+      });
+  }
+
+  function makeItem(p, depth){
+    var isSub = depth > 0;
+    var item = document.createElement("div");
+    item.className = "pageItem" + (isSub ? " sub" : "") +
+                     (p.id === currentId ? " active" : "") +
+                     (p.pinned ? " pinnedItem" : "");
+    if (isSub) item.style.marginLeft = (depth * 12) + "px";
+
+    // chevron to collapse/expand branches (spacer keeps names aligned)
+    var kids = subsOf(p.id);
+    var twist = document.createElement(kids.length ? "button" : "span");
+    twist.className = "twist";
+    if (kids.length){
+      twist.textContent = p.collapsed ? "▸" : "▾";
+      twist.title = p.collapsed ? "Expand subpages" : "Collapse subpages";
+      twist.onclick = function(ev){
+        ev.stopPropagation();
+        p.collapsed = !p.collapsed;
+        renderList();
+        save();
+      };
+    }
+    item.appendChild(twist);
+
+    var name = document.createElement("div");
+    name.className = "name";
+    name.textContent = p.title || (isSub ? "Untitled subpage" : "Untitled page");
+    item.appendChild(name);
+
+    // Drag pages to rearrange them: edges = reorder, middle = nest inside
+    item.draggable = true;
+    item.addEventListener("dragstart", function(e){
+      draggingPageId = p.id;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "bronote-page");
+    });
+    item.addEventListener("dragend", function(){
+      draggingPageId = null;
+      clearDropMarks();
+    });
+    item.addEventListener("dragover", function(e){
+      if (!draggingPageId || draggingPageId === p.id) return;
+      e.preventDefault();
+      var zone = dropZoneAt(e, item);
+      item.classList.toggle("dropBefore", zone === "before");
+      item.classList.toggle("dropAfter", zone === "after");
+      item.classList.toggle("dropInto", zone === "into");
+    });
+    item.addEventListener("dragleave", function(){
+      item.classList.remove("dropBefore", "dropAfter", "dropInto");
+    });
+    item.addEventListener("drop", function(e){
+      if (!draggingPageId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var zone = dropZoneAt(e, item);
+      clearDropMarks();
+      movePage(draggingPageId, p.id, zone);
+      draggingPageId = null;
+    });
+
+    var pin = document.createElement("button");
+    pin.className = "pinBtn";
+    pin.textContent = p.pinned ? "★" : "☆";
+    pin.title = p.pinned ? "Unpin" : (isSub ? "Pin to the top of its group" : "Pin to the top");
+    pin.onclick = function(ev){
+      ev.stopPropagation();
+      p.pinned = !p.pinned;
+      renderList();
+      save();
+    };
+    item.appendChild(pin);
+
+    if (isSub){
+      var promote = document.createElement("button");
+      promote.className = "promote";
+      promote.textContent = "«";
+      promote.title = "Move up one level";
+      promote.onclick = function(ev){
+        ev.stopPropagation();
+        promotePage(p);
+      };
+      item.appendChild(promote);
+    }
+
+    var demote = document.createElement("button");
+    demote.className = "promote";
+    demote.textContent = "»";
+    demote.title = "Move down one level (under the page above)";
+    demote.onclick = function(ev){
+      ev.stopPropagation();
+      demotePage(p);
+    };
+    item.appendChild(demote);
+
+    var addSub = document.createElement("button");
+    addSub.className = "addSub";
+    addSub.textContent = "+";
+    addSub.title = "Add a subpage";
+    addSub.onclick = function(ev){
+      ev.stopPropagation();
+      addPage("", p.id);
+      openPage(currentId);
+      titleEl.focus();
+    };
+    item.appendChild(addSub);
+
+    var savePage = document.createElement("button");
+    savePage.className = "savePage";
+    savePage.innerHTML = "&#8595;";
+    savePage.title = "Save this page to a file";
+    savePage.onclick = function(ev){
+      ev.stopPropagation();
+      syncCurrent();
+      var pages = [p].concat(descendantsOf(p.id));
+      exportFile({ pages: pages, lastOpen: p.id },
+                 "bronote-page-" + fileSafe(p.title) + ".json");
+    };
+    item.appendChild(savePage);
+
+    var del = document.createElement("button");
+    del.className = "del";
+    del.textContent = "✕";
+    del.title = "Delete this page";
+    del.onclick = function(ev){
+      ev.stopPropagation();
+      // no confirmation needed — Ctrl+Z brings deleted pages back
+      var gone = {};
+      gone[p.id] = true;
+      descendantsOf(p.id).forEach(function(k){ gone[k.id] = true; });
+      // remember what was removed and where, so Ctrl+Z can bring it back
+      var removed = [];
+      data.pages.forEach(function(x, i){
+        if (gone[x.id]) removed.push({ page: x, index: i });
+      });
+      data.pages = data.pages.filter(function(x){ return !gone[x.id]; });
+      pushDeletedOp({ at: Date.now(), pages: removed });
+      if (!data.pages.length) addPage("");
+      if (gone[currentId]){
+        var firstTop = data.pages.filter(function(x){ return !x.parentId; })[0];
+        currentId = (firstTop || data.pages[0]).id;
+      }
+      openPage(currentId);
+      save();
+    };
+    item.appendChild(del);
+
+    item.onclick = function(){ openPage(p.id); };
+    return item;
+  }
+
+  // zone: "before" / "after" = become target's sibling there;
+  // "into" = become target's (last) subpage. The page's own subtree
+  // always travels with it.
+  function movePage(dragId, targetId, zone, skipOp){
+    if (dragId === targetId) return;
+    var drag = getPage(dragId), target = getPage(targetId);
+    if (!drag || !target) return;
+    if (isDescendant(target, drag.id)) return; // no dropping into own subtree
+    var op = skipOp ? null : captureMove(drag);
+    var subtree = [drag].concat(descendantsOf(drag.id));
+    data.pages = data.pages.filter(function(p){ return subtree.indexOf(p) === -1; });
+    if (zone === "into"){
+      drag.parentId = target.id;
+      drag.pinned = false;
+      Array.prototype.push.apply(data.pages, subtree);
+    } else {
+      drag.parentId = target.parentId || null;
+      drag.pinned = !!target.pinned; // land in the zone it was dropped in
+      var idx = data.pages.indexOf(target) + (zone === "after" ? 1 : 0);
+      Array.prototype.splice.apply(data.pages, [idx, 0].concat(subtree));
+    }
+    if (op){
+      op.redoFn = function(){ movePage(dragId, targetId, zone, true); };
+      pushDeletedOp(op);
+    }
+    renderList();
+    save();
+  }
+
+  // siblings in the order the sidebar shows them (pinned first)
+  function orderedSiblingsOf(pg){
+    var sibs = pg.parentId
+      ? subsOf(pg.parentId)
+      : data.pages.filter(function(x){ return !x.parentId || !getPage(x.parentId); });
+    return sibs.filter(function(x){ return x.pinned; })
+          .concat(sibs.filter(function(x){ return !x.pinned; }));
+  }
+
+  // » on a card: move it down one level, becoming a subpage of the page
+  // directly above it. Undoable like any other structure change.
+  function demotePage(pg, skipOp){
+    var sibs = orderedSiblingsOf(pg);
+    var i = sibs.indexOf(pg);
+    if (i <= 0) return; // nothing above it to tuck under
+    var newParent = sibs[i - 1];
+    var op = skipOp ? null : captureMove(pg);
+    var subtree = [pg].concat(descendantsOf(pg.id));
+    data.pages = data.pages.filter(function(x){ return subtree.indexOf(x) === -1; });
+    pg.parentId = newParent.id;
+    pg.pinned = false;
+    Array.prototype.push.apply(data.pages, subtree); // arrives as last subpage
+    if (op){
+      op.redoFn = function(){ demotePage(pg, true); };
+      pushDeletedOp(op);
+    }
+    renderList();
+    save();
+  }
+
+  // « on a subpage card: move it up one level, landing right after its
+  // old parent. Undoable like any other structure change.
+  function promotePage(pg, skipOp){
+    var parent = getPage(pg.parentId);
+    if (!parent) return;
+    var op = skipOp ? null : captureMove(pg);
+    var subtree = [pg].concat(descendantsOf(pg.id));
+    data.pages = data.pages.filter(function(x){ return subtree.indexOf(x) === -1; });
+    pg.parentId = parent.parentId || null;
+    pg.pinned = false;
+    var idx = data.pages.indexOf(parent) + 1;
+    Array.prototype.splice.apply(data.pages, [idx, 0].concat(subtree));
+    if (op){
+      op.redoFn = function(){ promotePage(pg, true); };
+      pushDeletedOp(op);
+    }
+    renderList();
+    save();
+  }
+
+  function stripHtml(html){
+    return (html || "").replace(/<[^>]+>/g, " ").toLowerCase();
+  }
+
+  function renderList(){
+    pageListEl.innerHTML = "";
+    var q = (searchBox.value || "").trim().toLowerCase();
+    function matches(p){
+      if (!q) return true;
+      return (p.title || "").toLowerCase().indexOf(q) !== -1 ||
+             stripHtml(p.body).indexOf(q) !== -1;
+    }
+    function branchVisible(p){
+      if (!q || matches(p)) return true;
+      return subsOf(p.id).some(branchVisible);
+    }
+    function renderBranch(p, depth){
+      if (depth > 12) return; // sanity cap
+      pageListEl.appendChild(makeItem(p, depth));
+      if (p.collapsed && !q) return; // searching always looks inside
+      var kids = subsOf(p.id);
+      // pinned subpages float to the top of their sibling group
+      kids = kids.filter(function(c){ return c.pinned; })
+             .concat(kids.filter(function(c){ return !c.pinned; }));
+      kids.forEach(function(c){
+        if (q && !branchVisible(c)) return;
+        renderBranch(c, depth + 1);
+      });
+    }
+    var tops = data.pages.filter(function(p){
+      return !p.parentId || !getPage(p.parentId);
+    });
+    // pinned pages float to the top
+    tops = tops.filter(function(p){ return p.pinned; })
+           .concat(tops.filter(function(p){ return !p.pinned; }));
+    tops.forEach(function(p){
+      if (q && !branchVisible(p)) return;
+      renderBranch(p, 0);
+    });
+  }
+
+  var searchBox = document.getElementById("searchBox");
+  searchBox.addEventListener("input", renderList);
+  searchBox.addEventListener("keydown", function(e){
+    if (e.key === "Escape"){ searchBox.value = ""; renderList(); searchBox.blur(); }
+  });
+
+  function openPage(id){
+    currentId = id;
+    var p = getPage(id);
+    titleEl.textContent = p.title;
+    titleEl.classList.toggle("isSub", !!(p.parentId && getPage(p.parentId)));
+    editorEl.innerHTML = p.body;
+    upgradeFigures();
+    p.body = editorEl.innerHTML; // keep the stored form canonical too
+    loadHist(id);
+    renderList();
+    closeSidebar(); // on a phone, picking a page closes the drawer
+    save();
+  }
+
+  // ---------- Editing ----------
+  function syncCurrent(){
+    var p = getPage(currentId);
+    if (!p) return;
+    cleanImageControls();
+    p.title = titleEl.textContent.trim();
+    p.body = editorEl.innerHTML;
+  }
+
+  titleEl.addEventListener("input", function(){
+    syncCurrent(); renderList(); save();
+  });
+  titleEl.addEventListener("keydown", function(e){
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    // If the page starts with an image or divider there is nowhere to
+    // type above it — make a fresh first line
+    var first = editorEl.firstChild;
+    if (first && first.nodeType === 1 &&
+        (first.tagName === "FIGURE" || first.tagName === "HR")){
+      var p = document.createElement("p");
+      p.innerHTML = "<br>";
+      editorEl.insertBefore(p, first);
+      syncCurrent(); save();
+    }
+    editorEl.focus();
+    var r = document.createRange();
+    r.selectNodeContents(editorEl.firstChild || editorEl);
+    r.collapse(true);
+    var s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  });
+  editorEl.addEventListener("input", function(){
+    syncCurrent(); save();
+  });
+
+  // ---------- Lists ----------
+  // The browser's own list command merges lines that are separated by soft
+  // breaks (<br>) into one bullet. This makes one bullet per visible line.
+  var BLOCK_TAGS = {P:1, DIV:1, H1:1, H2:1, H3:1, H4:1, H5:1, H6:1,
+                    UL:1, OL:1, FIGURE:1, BLOCKQUOTE:1, PRE:1, HR:1};
+
+  function esc(s){
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function blockAt(container, offset, isEnd){
+    if (container === editorEl){
+      var idx = isEnd ? offset - 1 : offset;
+      idx = Math.max(0, Math.min(idx, editorEl.childNodes.length - 1));
+      return editorEl.childNodes[idx] || null;
+    }
+    var node = container;
+    while (node && node.parentNode !== editorEl) node = node.parentNode;
+    return node;
+  }
+
+  function buildListHtml(blocks, listTag){
+    var out = "", items = [], run = [];
+    function flushRun(){
+      var line = run.join("");
+      run = [];
+      if (line.replace(/&nbsp;|\s/g, "")) items.push(line);
+    }
+    function closeList(){
+      flushRun();
+      if (items.length){
+        out += "<" + listTag + ">" +
+               items.map(function(l){ return "<li>" + l + "</li>"; }).join("") +
+               "</" + listTag + ">";
+        items = [];
+      }
+    }
+    blocks.forEach(function(b){
+      if (b.nodeType === 3){ run.push(esc(b.textContent)); return; }
+      if (b.nodeType !== 1) return;
+      var tag = b.tagName;
+      if (tag === "BR"){ flushRun(); return; }
+      if (!BLOCK_TAGS[tag]){ run.push(b.outerHTML); return; }
+      flushRun();
+      if (tag === "FIGURE"){ closeList(); out += b.outerHTML; return; }
+      if (tag === "UL" || tag === "OL"){
+        Array.from(b.children).forEach(function(li){ items.push(li.innerHTML); });
+        return;
+      }
+      Array.from(b.childNodes).forEach(function(ch){
+        if (ch.nodeType === 1 && ch.tagName === "BR") flushRun();
+        else run.push(ch.nodeType === 3 ? esc(ch.textContent) : ch.outerHTML);
+      });
+      flushRun();
+    });
+    closeList();
+    if (!out) out = "<" + listTag + "><li><br></li></" + listTag + ">";
+    return out;
+  }
+
+  function toggleList(listTag){
+    editorEl.focus();
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    var range = sel.getRangeAt(0);
+    if (!editorEl.contains(range.startContainer)) return;
+
+    var startB = blockAt(range.startContainer, range.startOffset, false);
+    if (!startB){ // empty editor: start a fresh list
+      editorEl.innerHTML = "<" + listTag + "><li><br></li></" + listTag + ">";
+      var r0 = document.createRange();
+      r0.selectNodeContents(editorEl.querySelector("li"));
+      sel.removeAllRanges();
+      sel.addRange(r0);
+      syncCurrent(); save();
+      return;
+    }
+    var endB = blockAt(range.endContainer, range.endOffset, true) || startB;
+
+    var blocks = [], n = startB;
+    while (n){ blocks.push(n); if (n === endB) break; n = n.nextSibling; }
+    if (blocks[blocks.length - 1] !== endB) blocks = [startB];
+
+    var allSameList = blocks.every(function(b){
+      return b.nodeType === 1 && b.tagName.toLowerCase() === listTag;
+    });
+
+    var html;
+    if (allSameList){ // clicking the same list type again unwraps it
+      html = "";
+      blocks.forEach(function(list){
+        Array.from(list.children).forEach(function(li){
+          html += "<p>" + (li.innerHTML.trim() || "<br>") + "</p>";
+        });
+      });
+    } else {
+      html = buildListHtml(blocks, listTag);
+    }
+
+    // Replace the blocks ourselves — the browser's insertHTML "helpfully"
+    // rewrites list types when the selection touches an existing list.
+    var temp = document.createElement("div");
+    temp.innerHTML = html;
+    var newNodes = Array.from(temp.childNodes);
+    newNodes.forEach(function(nn){ editorEl.insertBefore(nn, blocks[0]); });
+    blocks.forEach(function(b){ editorEl.removeChild(b); });
+    if (newNodes.length){
+      var r = document.createRange();
+      r.selectNodeContents(newNodes[newNodes.length - 1]);
+      r.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    syncCurrent(); save();
+  }
+
+  // Toolbar formatting buttons
+  document.querySelectorAll("#toolbar button[data-cmd]").forEach(function(btn){
+    btn.addEventListener("mousedown", function(e){ e.preventDefault(); }); // keep selection
+    btn.addEventListener("click", function(){
+      editorEl.focus();
+      if (btn.dataset.cmd === "undo") return doUndo();
+      if (btn.dataset.cmd === "redo") return doRedo();
+      if (btn.dataset.cmd === "insertUnorderedList") return toggleList("ul");
+      if (btn.dataset.cmd === "insertOrderedList") return toggleList("ol");
+      var val = btn.dataset.val || null;
+      // Heading buttons toggle: clicking H1 on a line that is already H1
+      // turns it back into normal text.
+      if (btn.dataset.cmd === "formatBlock" && val && val !== "p"){
+        var current = (document.queryCommandValue("formatBlock") || "").toLowerCase();
+        if (current === val) val = "p";
+      }
+      document.execCommand(btn.dataset.cmd, false, val);
+      syncCurrent(); save();
+    });
+  });
+
+  // ---------- Undo/redo that survives refresh ----------
+  // Snapshots of each page are kept in the database, so Ctrl+Z still works
+  // after reloading or reopening the app.
+  var histCache = {};
+  var recordTimer = null;
+  var lastRecordAt = 0;
+  var MAX_SNAPS = 100, MAX_SNAP_CHARS = 8000000;
+
+  function dbDel(key){
+    if (!db) return Promise.resolve();
+    return new Promise(function(resolve){
+      var tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").delete(key);
+      tx.oncomplete = tx.onerror = function(){ resolve(); };
+    });
+  }
+
+  // Snapshots would balloon if every one carried full image data, so each
+  // distinct image is stored once per page and snapshots just reference it.
+  function hashStr(s){
+    var v = 5381;
+    for (var i = 0; i < s.length; i += 31){
+      v = ((v * 33) ^ s.charCodeAt(i)) >>> 0;
+    }
+    return v.toString(36) + "-" + s.length.toString(36);
+  }
+  function deflate(body, imgs){
+    return (body || "").replace(/src="(data:image\/[^"]+)"/g, function(m, url){
+      var key = hashStr(url);
+      imgs[key] = url;
+      return 'src="bronote-img://' + key + '"';
+    });
+  }
+  function inflate(body, imgs){
+    return (body || "").replace(/src="bronote-img:\/\/([^"]+)"/g, function(m, key){
+      return 'src="' + (imgs[key] || "") + '"';
+    });
+  }
+
+  function loadHist(id){
+    if (histCache[id]) return;
+    function init(stored){
+      if (histCache[id]) return;
+      var h = (stored && stored.stack) ? stored : null;
+      if (!h){
+        var p = getPage(id);
+        var imgs = {};
+        h = { stack: p ? [{ t: p.title, b: deflate(p.body, imgs) }] : [],
+              pos: p ? 0 : -1, imgs: imgs };
+      }
+      if (!h.imgs) h.imgs = {};
+      histCache[id] = h;
+    }
+    if (db) dbGet("hist:" + id).then(init).catch(function(){ init(null); });
+    else init(null);
+  }
+
+  function persistHist(id){
+    if (db && histCache[id]) dbSet("hist:" + id, histCache[id]);
+  }
+
+  function scheduleRecord(){
+    clearTimeout(recordTimer);
+    // Snapshot on a short typing pause — but never let continuous typing
+    // go unsnapshotted for long, so one undo stays a small step.
+    var wait = (Date.now() - lastRecordAt > 1500) ? 0 : 500;
+    recordTimer = setTimeout(record, wait);
+  }
+
+  function record(){
+    clearTimeout(recordTimer);
+    lastRecordAt = Date.now();
+    var p = getPage(currentId);
+    var h = histCache[currentId];
+    if (!p || !h) return;
+    if (!h.imgs) h.imgs = {};
+    var body = deflate(p.body, h.imgs);
+    var cur = h.stack[h.pos];
+    if (cur && cur.t === p.title && cur.b === body) return; // nothing new
+    h.stack = h.stack.slice(0, h.pos + 1); // typing after undo drops the redo tail
+    h.stack.push({ t: p.title, b: body, at: Date.now() });
+    var total = 0;
+    h.stack.forEach(function(s){ total += s.b.length; });
+    while (h.stack.length > MAX_SNAPS ||
+           (total > MAX_SNAP_CHARS && h.stack.length > 2)){
+      total -= h.stack[0].b.length;
+      h.stack.shift();
+    }
+    h.pos = h.stack.length - 1;
+    // drop stored images that no remaining snapshot references
+    var used = {};
+    h.stack.forEach(function(s){
+      s.b.replace(/bronote-img:\/\/([^"]+)/g, function(m, k){ used[k] = 1; return m; });
+    });
+    Object.keys(h.imgs).forEach(function(k){ if (!used[k]) delete h.imgs[k]; });
+    persistHist(currentId);
+  }
+
+  function applySnap(snap){
+    var p = getPage(currentId);
+    if (!p) return;
+    var h = histCache[currentId];
+    var body = inflate(snap.b, (h && h.imgs) || {});
+    p.title = snap.t;
+    titleEl.textContent = snap.t;
+    editorEl.innerHTML = body;
+    upgradeFigures();
+    // The browser and upgrade pass may serialize slightly differently than
+    // the stored snapshot; store back the canonical form, otherwise the
+    // next undo mistakes the difference for a fresh edit and gets stuck.
+    p.body = editorEl.innerHTML;
+    snap.b = deflate(p.body, h ? h.imgs : {});
+    renderList();
+    persistHist(currentId);
+    save();
+    // Rebuilding the page drops focus and the caret — put them back,
+    // otherwise keyboard shortcuts die after one undo
+    editorEl.focus();
+    var r = document.createRange();
+    r.selectNodeContents(editorEl);
+    r.collapse(false);
+    var s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  }
+
+  // ---- Page deletion is undoable too (within this session) ----
+  var deletedOps = [];   // each: {at, pages:[{page, index}]}
+  var redoDeleted = [];
+  var lastUndoWasDelete = false;
+
+  function purgeOpHistory(op){
+    if (!op.pages) return; // move ops carry no deleted pages
+    op.pages.forEach(function(en){
+      delete histCache[en.page.id];
+      dbDel("hist:" + en.page.id);
+    });
+  }
+
+  function pushDeletedOp(op){
+    deletedOps.push(op);
+    if (deletedOps.length > 10) purgeOpHistory(deletedOps.shift());
+    redoDeleted = []; // a fresh structure change clears the redo queue
+  }
+
+  // A "move" op remembers where everything sat before a drag/promote
+  function captureMove(p){
+    return { type: "move", at: Date.now(),
+             order: data.pages.map(function(x){ return x.id; }),
+             dragId: p.id, oldParent: p.parentId || null,
+             oldPinned: !!p.pinned };
+  }
+
+  function undoDelete(){
+    var op = deletedOps.pop();
+    if (!op) return;
+    if (op.type === "move"){
+      var moved = getPage(op.dragId);
+      if (moved){
+        moved.parentId = op.oldParent;
+        moved.pinned = op.oldPinned;
+        var byId = {};
+        data.pages.forEach(function(pg){ byId[pg.id] = pg; });
+        var rebuilt = [];
+        op.order.forEach(function(id){
+          if (byId[id]){ rebuilt.push(byId[id]); delete byId[id]; }
+        });
+        Object.keys(byId).forEach(function(id){ rebuilt.push(byId[id]); });
+        data.pages = rebuilt;
+      }
+      redoDeleted.push(op);
+      lastUndoWasDelete = true;
+      renderList();
+      save();
+      return;
+    }
+    op.pages.forEach(function(en){
+      data.pages.splice(Math.min(en.index, data.pages.length), 0, en.page);
+    });
+    redoDeleted.push(op);
+    lastUndoWasDelete = true;
+    openPage(op.pages[0].page.id);
+    save();
+  }
+
+  function redoDelete(){
+    var op = redoDeleted.pop();
+    if (!op) return;
+    if (op.type === "move"){
+      if (op.redoFn) op.redoFn();
+      deletedOps.push(op);
+      return;
+    }
+    var gone = {};
+    op.pages.forEach(function(en){ gone[en.page.id] = true; });
+    data.pages = data.pages.filter(function(x){ return !gone[x.id]; });
+    deletedOps.push(op);
+    if (!data.pages.length) addPage("");
+    if (gone[currentId]){
+      var firstTop = data.pages.filter(function(x){ return !x.parentId; })[0];
+      currentId = (firstTop || data.pages[0]).id;
+    }
+    openPage(currentId);
+    save();
+  }
+
+  function doUndo(){
+    syncCurrent();
+    record(); // capture any fresh typing first, so redo can come back to it
+    var h = histCache[currentId];
+    // A page deletion newer than the last text change is undone first,
+    // so undos replay in the order things actually happened.
+    var contentAt = (h && h.pos > 0) ? (h.stack[h.pos].at || 0) : -1;
+    var delOp = deletedOps[deletedOps.length - 1];
+    if (delOp && delOp.at > contentAt){ undoDelete(); return; }
+    if (!h || h.pos <= 0) return;
+    lastUndoWasDelete = false;
+    h.pos--;
+    applySnap(h.stack[h.pos]);
+  }
+
+  function doRedo(){
+    if (lastUndoWasDelete && redoDeleted.length){ redoDelete(); return; }
+    var h = histCache[currentId];
+    if (!h || h.pos >= h.stack.length - 1){
+      if (redoDeleted.length) redoDelete();
+      return;
+    }
+    h.pos++;
+    applySnap(h.stack[h.pos]);
+  }
+
+  // Undo/redo shortcuts work anywhere in the app, not just while the
+  // note text has focus (buttons always did; now the keys match them)
+  document.addEventListener("keydown", function(e){
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var key = e.key.toLowerCase();
+    if (key !== "z" && key !== "y") return;
+    var ae = document.activeElement; // typing in a box, not editing notes
+    if (ae && ae.tagName === "INPUT") return;
+    if (overlay.classList.contains("open")) return;   // a dialog is up
+    e.preventDefault();
+    if (key === "y" || e.shiftKey) doRedo(); else doUndo();
+  });
+
+  // Formatting shortcuts (these do need the caret in the text).
+  // B/I/U are handled here explicitly so the browser can never hijack
+  // them for its own shortcuts (bookmarks etc.).
+  editorEl.addEventListener("keydown", function(e){
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var key = e.key.toLowerCase();
+    var cmd = null;
+    if (key === "k"){ e.preventDefault(); promptLink(); return; }
+    if (key === "b") cmd = "bold";
+    else if (key === "i") cmd = "italic";
+    else if (key === "u") cmd = "underline";
+    else if (key === "l") cmd = "justifyLeft";
+    else if (key === "e") cmd = "justifyCenter";
+    else if (key === "r") cmd = "justifyRight";
+    else if (key === "j") cmd = "justifyFull";
+    if (!cmd) return;
+    e.preventDefault();
+    document.execCommand(cmd, false, null);
+    syncCurrent(); save();
+  });
+
+  // The B / I / U buttons light up to show the formatting at the caret
+  var stateCmds = ["bold", "italic", "underline"];
+  function refreshToolbarState(){
+    var inEditor = editorEl.contains(document.activeElement) ||
+                   document.activeElement === editorEl;
+    stateCmds.forEach(function(cmd){
+      var on = false;
+      if (inEditor){
+        try { on = document.queryCommandState(cmd); } catch(e){}
+      }
+      var btn = document.querySelector('#toolbar button[data-cmd="' + cmd + '"]');
+      if (btn) btn.classList.toggle("on", on);
+    });
+    // the size box mirrors the size at the cursor/selection (in points,
+    // like Word) — unless the user is busy typing in it, or a resize is
+    // mid-flight (its temporary styling must not leak into the box)
+    if (document.activeElement !== fontSizeInp && !applyingSize){
+      var shown = "";
+      if (inEditor){
+        var s = window.getSelection();
+        if (s.rangeCount){
+          var a = s.anchorNode, f = s.focusNode;
+          var ea = a && (a.nodeType === 1 ? a : a.parentNode);
+          var ef = f && (f.nodeType === 1 ? f : f.parentNode);
+          if (ea && editorEl.contains(ea)){
+            var p1 = parseFloat(getComputedStyle(ea).fontSize);
+            var p2 = (ef && editorEl.contains(ef))
+              ? parseFloat(getComputedStyle(ef).fontSize) : p1;
+            if (Math.abs(p1 - p2) < 0.1){ // mixed sizes show blank, like Word
+              shown = String(Math.round(p1 * 0.75 * 10) / 10);
+            }
+          }
+        }
+      }
+      fontSizeInp.value = shown;
+    }
+  }
+  document.addEventListener("selectionchange", refreshToolbarState);
+
+  // ---------- Font size ----------
+  // Browsers only offer 7 coarse sizes natively, so exact pixel sizes are
+  // applied by wrapping the text ourselves.
+  // Clicking the size box steals focus and drops the text selection —
+  // remember it at mousedown and bring it back when applying. A fake
+  // highlight keeps the held selection visible meanwhile.
+  var savedSizeRange = null;
+  var applyingSize = false;
+
+  function showHeldHighlight(range){
+    try {
+      if (window.Highlight && CSS.highlights && range && !range.collapsed){
+        CSS.highlights.set("heldSelection", new Highlight(range));
+      }
+    } catch(e){}
+  }
+  function clearHeldHighlight(){
+    try { if (window.CSS && CSS.highlights) CSS.highlights.delete("heldSelection"); } catch(e){}
+  }
+
+  function applyFontSizePx(px, live){
+    applyingSize = true;
+    try {
+      applyFontSizeInner(px, live);
+    } finally {
+      applyingSize = false;
+    }
+    if (live) fontSizeInp.value = String(px); // show the real target size
+  }
+
+  function applyFontSizeInner(px, live){
+    editorEl.focus();
+    var sel = window.getSelection();
+    if (savedSizeRange){
+      sel.removeAllRanges();
+      sel.addRange(savedSizeRange);
+      savedSizeRange = null;
+    }
+    if (!sel.rangeCount || !editorEl.contains(sel.anchorNode)) return;
+    if (sel.isCollapsed){
+      // type-ahead: an invisible seed the next typing lands inside.
+      // If the caret already sits in an unused seed, just retune it.
+      var anch = sel.anchorNode;
+      var host = anch.nodeType === 1 ? anch : anch.parentNode;
+      if (host && host.tagName === "SPAN" && host.style.fontSize &&
+          host.textContent === "​"){
+        host.style.fontSize = px + "pt";
+      } else {
+        var span = document.createElement("span");
+        span.style.fontSize = px + "pt"; // points, matching Word's sizes
+        span.appendChild(document.createTextNode("​"));
+        var r = sel.getRangeAt(0);
+        r.insertNode(span);
+        r.selectNodeContents(span);
+        r.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+    } else {
+      // mark pre-existing size-7 runs so only the new ones get converted
+      Array.from(editorEl.querySelectorAll('font[size="7"]'))
+        .forEach(function(f){ f.dataset.keep = "1"; });
+      document.execCommand("fontSize", false, "7");
+      var made = [];
+      Array.from(editorEl.querySelectorAll('font[size="7"]:not([data-keep])'))
+        .forEach(function(f){
+          var s = document.createElement("span");
+          s.style.fontSize = px + "pt"; // points, matching Word's sizes
+          while (f.firstChild) s.appendChild(f.firstChild);
+          f.parentNode.replaceChild(s, f);
+          made.push(s);
+          // spinner-stepping re-wraps each click: peel now-redundant shells
+          var par = s.parentNode;
+          while (par && par !== editorEl && par.tagName === "SPAN" &&
+                 par.style.fontSize && par.childNodes.length === 1){
+            par.style.fontSize = "";
+            var next = par.parentNode;
+            if (!par.getAttribute("style")){
+              next.insertBefore(s, par);
+              par.remove();
+            }
+            par = next;
+          }
+        });
+      Array.from(editorEl.querySelectorAll("font[data-keep]"))
+        .forEach(function(f){ f.removeAttribute("data-keep"); });
+      // the DOM surgery above kills the selection — reselect the resized
+      // text so repeated knob clicks keep hitting the same words
+      if (made.length){
+        var rr = document.createRange();
+        rr.setStartBefore(made[0]);
+        rr.setEndAfter(made[made.length - 1]);
+        sel.removeAllRanges();
+        sel.addRange(rr);
+      }
+    }
+    if (live){
+      // remember the (possibly rebuilt) selection so the next spinner
+      // click hits the same text, and keep the glow + box focus alive
+      var s2 = window.getSelection();
+      if (s2.rangeCount && !s2.isCollapsed){
+        savedSizeRange = s2.getRangeAt(0).cloneRange();
+        showHeldHighlight(savedSizeRange);
+      }
+      fontSizeInp.focus();
+    }
+    syncCurrent(); save();
+  }
+
+  var fontSizeInp = document.getElementById("fontSizeInp");
+  fontSizeInp.addEventListener("mousedown", function(){
+    var sel = window.getSelection();
+    // capture a fresh editor selection; when focus is already in the box
+    // (repeated knob clicks) keep holding the one from before
+    if (sel.rangeCount && editorEl.contains(sel.anchorNode)){
+      savedSizeRange = sel.getRangeAt(0).cloneRange();
+    }
+    showHeldHighlight(savedSizeRange);
+  });
+  fontSizeInp.addEventListener("blur", clearHeldHighlight);
+  // the little up/down knobs (and arrow keys in the box) apply live;
+  // typed digits still wait for Enter. "Typing" is detected by the
+  // character key itself — event labels differ between browsers.
+  var lastTypedInBoxAt = 0;
+  fontSizeInp.addEventListener("input", function(){
+    if (Date.now() - lastTypedInBoxAt < 200) return; // typing, wait for Enter
+    var pt = parseFloat(fontSizeInp.value);
+    if (pt >= 4 && pt <= 200) applyFontSizePx(pt, true);
+  });
+  fontSizeInp.addEventListener("keydown", function(e){
+    e.stopPropagation();
+    if (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete"){
+      lastTypedInBoxAt = Date.now();
+    }
+    if (e.key === "Enter"){
+      e.preventDefault();
+      clearHeldHighlight();
+      var px = parseFloat(fontSizeInp.value);
+      if (px >= 4 && px <= 200) applyFontSizePx(px);
+      fontSizeInp.value = "";
+    }
+    if (e.key === "Escape"){
+      fontSizeInp.value = "";
+      savedSizeRange = null;
+      clearHeldHighlight();
+      fontSizeInp.blur();
+      editorEl.focus();
+    }
+  });
+
+  // ---------- Links ----------
+  function normalizeUrl(u){
+    // only ordinary link schemes; anything else (e.g. javascript:) is defanged
+    if (/^(https?|mailto|ftp|file):/i.test(u)) return u;
+    return "https://" + u.replace(/^[a-z][a-z0-9+.-]*:/i, "");
+  }
+
+  function refreshLinkAttrs(){
+    Array.from(editorEl.querySelectorAll("a")).forEach(function(a){
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener");
+      a.setAttribute("title", "Ctrl+Click to open: " + a.getAttribute("href"));
+    });
+  }
+
+  function promptLink(){
+    editorEl.focus();
+    var sel = window.getSelection();
+    if (!sel.rangeCount || !editorEl.contains(sel.anchorNode)) return;
+    var range = sel.getRangeAt(0).cloneRange();
+    var el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentNode;
+    var link = el && el.closest ? el.closest("a") : null;
+    if (link && !editorEl.contains(link)) link = null;
+    dialog(link ? "Edit link (empty removes it)" : "Link to where?",
+           { okText: link ? "Save" : "Add link",
+             input: { placeholder: "https://…", value: link ? link.getAttribute("href") : "" } })
+      .then(function(url){
+        if (url === null) return; // cancelled
+        editorEl.focus();
+        sel.removeAllRanges();
+        sel.addRange(range); // the dialog stole the selection; put it back
+        url = url.trim();
+        if (link){
+          if (!url){
+            while (link.firstChild) link.parentNode.insertBefore(link.firstChild, link);
+            link.remove();
+          } else {
+            link.setAttribute("href", normalizeUrl(url));
+          }
+        } else if (url){
+          var href = normalizeUrl(url);
+          if (range.collapsed){
+            var a = document.createElement("a");
+            a.href = href;
+            a.textContent = url;
+            range.insertNode(a);
+            range.setStartAfter(a);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          } else {
+            document.execCommand("createLink", false, href);
+          }
+        }
+        refreshLinkAttrs();
+        syncCurrent(); save();
+      });
+  }
+
+  var linkBtn = document.getElementById("linkBtn");
+  linkBtn.addEventListener("mousedown", function(e){ e.preventDefault(); }); // keep selection
+  linkBtn.addEventListener("click", promptLink);
+
+  // Links shouldn't yank the whole app away on a stray click — Ctrl+Click opens
+  editorEl.addEventListener("click", function(e){
+    var a = e.target.closest ? e.target.closest("a") : null;
+    if (!a || !editorEl.contains(a)) return;
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) window.open(a.href, "_blank", "noopener");
+  });
+
+  // ---------- Divider ----------
+  var dividerBtn = document.getElementById("dividerBtn");
+  dividerBtn.addEventListener("mousedown", function(e){ e.preventDefault(); });
+  dividerBtn.addEventListener("click", function(){
+    editorEl.focus();
+    document.execCommand("insertHTML", false, "<hr><p><br></p>");
+    syncCurrent(); save();
+  });
+
+  // ---------- Page break: a fresh sheet inside the same page ----------
+  var pageBreakBtn = document.getElementById("pageBreakBtn");
+  pageBreakBtn.addEventListener("mousedown", function(e){ e.preventDefault(); });
+  pageBreakBtn.addEventListener("click", function(){
+    editorEl.focus();
+    document.execCommand("insertHTML", false, '<hr class="pageBreak"><p><br></p>');
+    syncCurrent(); save();
+  });
+
+  // ---------- Jump to heading ----------
+  var headingJump = document.getElementById("headingJump");
+  function fillHeadingJump(){
+    headingJump.innerHTML = "";
+    var first = document.createElement("option");
+    first.value = "";
+    first.textContent = "Jump to…";
+    headingJump.appendChild(first);
+    var hs = editorEl.querySelectorAll("h1,h2,h3");
+    Array.from(hs).forEach(function(h, i){
+      var o = document.createElement("option");
+      var indent = h.tagName === "H1" ? "" :
+                   (h.tagName === "H2" ? "   " : "      ");
+      o.value = String(i);
+      o.textContent = indent + (h.textContent.trim() || "(empty heading)");
+      headingJump.appendChild(o);
+    });
+    if (!hs.length){
+      var none = document.createElement("option");
+      none.disabled = true;
+      none.textContent = "No headings on this page";
+      headingJump.appendChild(none);
+    }
+  }
+  headingJump.addEventListener("change", function(){
+    var v = headingJump.value;
+    if (v === "") return;
+    var h = editorEl.querySelectorAll("h1,h2,h3")[parseInt(v, 10)];
+    if (h){
+      var scrollEl = document.getElementById("scroll");
+      var top = h.getBoundingClientRect().top -
+                scrollEl.getBoundingClientRect().top + scrollEl.scrollTop;
+      scrollEl.scrollTop = Math.max(0, top - 24);
+    }
+    headingJump.value = "";
+  });
+
+  // ---------- Images ----------
+  var imgBtn = document.getElementById("imgBtn");
+  imgBtn.addEventListener("mousedown", function(e){ e.preventDefault(); }); // keep the caret
+  imgBtn.addEventListener("click", function(){ imgInput.click(); });
+
+  // BroNote has its own resize grip, so switch off the browser's native
+  // image-resize machinery — it's what cloned controls and spilled data
+  try { document.execCommand("enableObjectResizing", false, false); } catch(e){}
+  try { document.execCommand("enableInlineTableEditing", false, false); } catch(e){}
+
+  // The ✕ on an image (delegated so it works for saved pages too).
+  // No confirmation — removing an image is a normal Ctrl+Z-able edit.
+  editorEl.addEventListener("click", function(e){
+    var btn = e.target.closest && e.target.closest(".delImg");
+    if (!btn || !editorEl.contains(btn)) return;
+    var fig = btn.closest("figure");
+    if (!fig) return;
+    fig.remove();
+    syncCurrent(); save();
+  });
+
+  // Clicking a picture selects its whole figure, so Ctrl+C / Ctrl+X
+  // (and Backspace) have something to act on
+  editorEl.addEventListener("click", function(e){
+    if (e.target.tagName !== "IMG" || !e.target.closest(".imgWrap")) return;
+    var fig = e.target.closest("figure");
+    if (!fig || !editorEl.contains(fig)) return;
+    var r = document.createRange();
+    r.selectNode(fig);
+    var s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  });
+
+  // Our own resize: drag the grip on the image's bottom-right corner
+  editorEl.addEventListener("pointerdown", function(e){
+    var grip = e.target.closest ? e.target.closest(".resizeImg") : null;
+    if (!grip || !editorEl.contains(grip)) return;
+    e.preventDefault();
+    var img = grip.parentNode.querySelector("img");
+    if (!img) return;
+    var startX = e.clientX;
+    var startW = img.getBoundingClientRect().width;
+    try { grip.setPointerCapture(e.pointerId); } catch(err){}
+    function onMove(ev){
+      img.style.width = Math.round(Math.max(80, startW + (ev.clientX - startX))) + "px";
+    }
+    function onUp(){
+      grip.removeEventListener("pointermove", onMove);
+      grip.removeEventListener("pointerup", onUp);
+      grip.removeEventListener("pointercancel", onUp);
+      syncCurrent(); save();
+    }
+    grip.addEventListener("pointermove", onMove);
+    grip.addEventListener("pointerup", onUp);
+    grip.addEventListener("pointercancel", onUp);
+  });
+
+  // Enter inside a caption ends the caption and continues as normal text
+  // below the image — otherwise everything typed after stays caption-gray
+  editorEl.addEventListener("keydown", function(e){
+    if (e.key !== "Enter") return;
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    var node = sel.anchorNode;
+    var el = node && (node.nodeType === 1 ? node : node.parentNode);
+    var cap = el && el.closest ? el.closest("figcaption") : null;
+    if (!cap || !editorEl.contains(cap)) return;
+    e.preventDefault();
+    var fig = cap.closest("figure");
+    var next = fig ? fig.nextElementSibling : null;
+    if (!next || next.tagName === "FIGURE" || next.tagName === "HR"){
+      next = document.createElement("p");
+      next.innerHTML = "<br>";
+      fig.parentNode.insertBefore(next, fig.nextSibling);
+    }
+    var r = document.createRange();
+    r.selectNodeContents(next);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    syncCurrent(); save();
+  });
+
+  // Typing "1. thing" and pressing Enter turns the line into a real
+  // numbered list that continues with 2. ("- thing" makes bullets)
+  editorEl.addEventListener("keydown", function(e){
+    if (e.key !== "Enter") return;
+    var sel = window.getSelection();
+    if (!sel.rangeCount || !sel.isCollapsed) return;
+    var range = sel.getRangeAt(0);
+    var block = range.startContainer;
+    if (block === editorEl) return;
+    while (block && block.parentNode !== editorEl) block = block.parentNode;
+    if (!block) return;
+    // the first line of a page is often a bare text node with no <p> around it
+    var isText = block.nodeType === 3;
+    if (!isText && (block.nodeType !== 1 ||
+        (block.tagName !== "P" && block.tagName !== "DIV"))) return;
+    // only when the caret sits at the end of the line
+    var r = document.createRange();
+    r.setStart(range.endContainer, range.endOffset);
+    if (isText) r.setEnd(block, block.length);
+    else r.setEnd(block, block.childNodes.length);
+    if (r.toString().length) return;
+    var html = isText ? esc(block.textContent)
+                      : block.innerHTML.replace(/<br>\s*$/i, "");
+    if (/<br/i.test(html)) return; // lines with soft breaks are left alone
+    var text = block.textContent;
+    var num = text.match(/^(\d+)[.)][\s ]+\S/);
+    var bul = !num && /^[-*•][\s ]+\S/.test(text);
+    if (!num && !bul) return;
+    var stripRe = num ? /^(\d+)[.)](\s|&nbsp;)+/ : /^[-*•](\s|&nbsp;)+/;
+    if (!stripRe.test(html)) return; // prefix tangled in markup; play it safe
+    e.preventDefault();
+    var list = document.createElement(num ? "ol" : "ul");
+    if (num && parseInt(num[1], 10) !== 1) list.setAttribute("start", num[1]);
+    var li1 = document.createElement("li");
+    li1.innerHTML = html.replace(stripRe, "") || "<br>";
+    var li2 = document.createElement("li");
+    li2.innerHTML = "<br>";
+    list.appendChild(li1);
+    list.appendChild(li2);
+    editorEl.replaceChild(list, block);
+    var r2 = document.createRange();
+    r2.selectNodeContents(li2);
+    r2.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r2);
+    syncCurrent(); save();
+  });
+
+  // Arrow keys travel the whole page: text -> caption -> text -> caption.
+  // Captions are separate editing islands, so the browser's caret refuses
+  // to cross their borders on its own.
+  function caretIntoBlock(blockEl, atStart){
+    var isCap = blockEl.tagName === "FIGCAPTION";
+    (isCap ? blockEl : editorEl).focus();
+    var r = document.createRange();
+    r.selectNodeContents(blockEl);
+    r.collapse(atStart);
+    var s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    blockEl.scrollIntoView({ block: "nearest" });
+  }
+
+  function stepFromFigure(fig, down){
+    var sib = down ? fig.nextElementSibling : fig.previousElementSibling;
+    // dividers and page breaks are not places a cursor can live
+    while (sib && sib.tagName === "HR"){
+      sib = down ? sib.nextElementSibling : sib.previousElementSibling;
+    }
+    if (!sib){
+      // no line on that side yet (e.g. the page starts or ends with an
+      // image) — make one, so there is always somewhere to type
+      sib = document.createElement("p");
+      sib.innerHTML = "<br>";
+      fig.parentNode.insertBefore(sib, down ? fig.nextSibling : fig);
+      syncCurrent(); save();
+    }
+    if (sib.tagName === "FIGURE"){
+      var cap = sib.querySelector("figcaption");
+      if (cap){ caretIntoBlock(cap, down); return; }
+      stepFromFigure(sib, down);
+      return;
+    }
+    caretIntoBlock(sib, down);
+  }
+
+  function caretRect(sel){
+    var rect = sel.getRangeAt(0).getBoundingClientRect();
+    if (rect && (rect.top || rect.bottom)) return rect;
+    var el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentNode;
+    return el.getBoundingClientRect();
+  }
+
+  editorEl.addEventListener("keydown", function(e){
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    var down = e.key === "ArrowDown";
+    var node = sel.anchorNode;
+    var el = node.nodeType === 1 ? node : node.parentNode;
+    var cap = el && el.closest ? el.closest("figcaption") : null;
+    if (cap && editorEl.contains(cap)){
+      // leaving a caption up or down
+      e.preventDefault();
+      stepFromFigure(cap.closest("figure"), down);
+      return;
+    }
+    // entering a caption from the neighbouring text block
+    var block = el;
+    while (block && block.parentNode !== editorEl) block = block.parentNode;
+    if (!block || block.nodeType !== 1) return;
+    var sib = down ? block.nextElementSibling : block.previousElementSibling;
+    while (sib && sib.tagName === "HR"){
+      sib = down ? sib.nextElementSibling : sib.previousElementSibling;
+    }
+    if (!sib || sib.tagName !== "FIGURE") return;
+    var cr = caretRect(sel), br = block.getBoundingClientRect();
+    var atEdge = down ? (br.bottom - cr.bottom) < 26 : (cr.top - br.top) < 26;
+    if (!atEdge) return; // still moving between the block's own lines
+    e.preventDefault();
+    var targetCap = sib.querySelector("figcaption");
+    if (targetCap) caretIntoBlock(targetCap, down);
+    else stepFromFigure(sib, down);
+  });
+
+  // Backspace/Delete with the cursor next to an image removes the image
+  editorEl.addEventListener("keydown", function(e){
+    if (e.key !== "Backspace" && e.key !== "Delete") return;
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    if (!sel.isCollapsed){
+      // a selected image: the browser refuses to delete the protected
+      // figure itself, so do it ourselves
+      var rr = sel.getRangeAt(0);
+      var frag = rr.cloneContents();
+      if (frag.querySelector("figure")){
+        e.preventDefault();
+        rr.deleteContents();
+        syncCurrent(); save();
+      }
+      return;
+    }
+    var range = sel.getRangeAt(0);
+    var node = range.startContainer;
+    var el = node.nodeType === 1 ? node : node.parentNode;
+    if (el && el.closest && el.closest("figcaption")) return; // editing a caption
+    var back = e.key === "Backspace";
+    var target = null;
+    if (node === editorEl){
+      var ch = editorEl.childNodes[range.startOffset + (back ? -1 : 0)];
+      if (ch && ch.nodeType === 1 && ch.tagName === "FIGURE") target = ch;
+    } else {
+      var block = node;
+      while (block && block.parentNode !== editorEl) block = block.parentNode;
+      if (!block) return;
+      if (block.nodeType === 1 && block.tagName === "FIGURE"){
+        // A stray caret inside the figure frame: never delete the image
+        // from here — just move the caret to safety below it
+        e.preventDefault();
+        stepFromFigure(block, true);
+        return;
+      }
+      // only when the caret sits at the very edge of its line
+      var r = document.createRange();
+      if (back){ r.setStart(block, 0); r.setEnd(range.startContainer, range.startOffset); }
+      else { r.setStart(range.endContainer, range.endOffset); r.setEnd(block, block.childNodes.length); }
+      if (r.toString().length !== 0) return;
+      var sib = back ? block.previousElementSibling : block.nextElementSibling;
+      if (sib && sib.tagName === "FIGURE") target = sib;
+    }
+    if (target){
+      e.preventDefault();
+      target.remove();
+      syncCurrent(); save();
+    }
+  });
+
+  // Last line of defence: no matter how raw image data tries to enter as
+  // text (drop or paste), turn it into a figure instead. Also route the
+  // browser's own undo/redo events into our history.
+  editorEl.addEventListener("beforeinput", function(e){
+    if (e.inputType === "historyUndo"){ e.preventDefault(); doUndo(); return; }
+    if (e.inputType === "historyRedo"){ e.preventDefault(); doRedo(); return; }
+    if (e.inputType === "insertFromDrop" || e.inputType === "insertFromPaste"){
+      var txt = "";
+      try {
+        txt = e.dataTransfer ? e.dataTransfer.getData("text/plain") : (e.data || "");
+      } catch(err){}
+      if (txt && txt.indexOf("data:image/") === 0){
+        e.preventDefault();
+        insertFigure(txt.split(/\s/)[0]);
+      }
+    }
+  });
+
+  imgInput.addEventListener("change", function(){
+    var file = imgInput.files[0];
+    imgInput.value = "";
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      insertFigure(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function makeImgDelBtn(){
+    var x = document.createElement("button");
+    x.className = "delImg";
+    x.textContent = "✕";
+    x.title = "Delete this image";
+    x.contentEditable = "false";
+    return x;
+  }
+
+  function makeResizeGrip(){
+    var g = document.createElement("span");
+    g.className = "resizeImg";
+    g.title = "Drag to resize";
+    g.contentEditable = "false";
+    return g;
+  }
+
+  // Some browsers' native image-editing can clone our controls while
+  // resizing. Any ✕ or grip that is not exactly where it belongs
+  // (inside the image wrapper, inside a figure) is a stray — remove it.
+  function cleanImageControls(){
+    Array.from(editorEl.querySelectorAll(".delImg, .resizeImg")).forEach(function(el){
+      var p = el.parentNode;
+      var ok = p && p.classList && p.classList.contains("imgWrap") &&
+               el.closest && el.closest("figure");
+      if (!ok) el.remove();
+    });
+  }
+
+  // Bring older figures (saved before these features) up to date:
+  // wrap the image so the ✕ and resize grip sit on its corners.
+  // Images pasted as part of HTML (e.g. from Word or a web page) arrive as
+  // bare <img> tags: adopt the usable ones into proper captioned figures
+  // and drop the ones pointing at local files the browser cannot read.
+  function normalizeLooseImages(){
+    Array.from(editorEl.querySelectorAll("img")).forEach(function(img){
+      if (img.closest("figure")) return; // the figure pass handles these
+      var src = img.getAttribute("src") || "";
+      if (!src || src.indexOf("file:") === 0){ img.remove(); return; }
+      var fig = document.createElement("figure");
+      fig.contentEditable = "false";
+      var wrap = document.createElement("span");
+      wrap.className = "imgWrap";
+      var cap = document.createElement("figcaption");
+      cap.contentEditable = "true";
+      img.parentNode.insertBefore(fig, img);
+      wrap.appendChild(img);
+      wrap.appendChild(makeImgDelBtn());
+      wrap.appendChild(makeResizeGrip());
+      fig.appendChild(wrap);
+      fig.appendChild(cap);
+    });
+  }
+
+  function upgradeFigures(){
+    cleanImageControls();
+    normalizeLooseImages();
+    refreshLinkAttrs();
+    // Repair notes where an image ended up nested inside another image's
+    // caption: move it out to sit right after its host
+    Array.from(editorEl.querySelectorAll("figcaption figure")).forEach(function(nested){
+      var cap = nested.closest("figcaption");
+      var host = cap ? cap.closest("figure") : null;
+      if (host && host.parentNode){
+        host.parentNode.insertBefore(nested, host.nextSibling);
+      }
+    });
+    Array.from(editorEl.querySelectorAll("figure")).forEach(function(fig){
+      var img = fig.querySelector("img");
+      if (!img) return;
+      var wrap = fig.querySelector(".imgWrap");
+      if (!wrap){
+        wrap = document.createElement("span");
+        wrap.className = "imgWrap";
+        fig.insertBefore(wrap, fig.firstChild);
+        wrap.appendChild(img);
+      }
+      var oldDel = fig.querySelector(".delImg");
+      if (oldDel && oldDel.parentNode !== wrap) wrap.appendChild(oldDel);
+      if (!wrap.querySelector(".delImg")) wrap.appendChild(makeImgDelBtn());
+      if (!wrap.querySelector(".resizeImg")) wrap.appendChild(makeResizeGrip());
+      img.removeAttribute("draggable");
+    });
+  }
+
+  // Big images get scaled to screen size and re-encoded — a 4 MB phone
+  // photo becomes a few hundred KB with no visible difference in the app.
+  function compressDataUrl(src, cb){
+    if (src.indexOf("data:image/") !== 0 ||
+        /^data:image\/gif/.test(src) || // GIFs would lose their animation
+        src.length < 200000){ cb(src); return; }
+    var img = new Image();
+    img.onload = function(){
+      var MAX = 1600;
+      var scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      var w = Math.max(1, Math.round(img.width * scale));
+      var h = Math.max(1, Math.round(img.height * scale));
+      var c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      var ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      var hasAlpha = false;
+      try {
+        var d = ctx.getImageData(0, 0, w, h).data;
+        for (var i = 3; i < d.length; i += 4){
+          if (d[i] < 255){ hasAlpha = true; break; }
+        }
+      } catch(e){}
+      var out = hasAlpha ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85);
+      cb(out.length < src.length ? out : src);
+    };
+    img.onerror = function(){ cb(src); };
+    img.src = src;
+  }
+
+  function insertFigure(src){
+    compressDataUrl(src, insertFigureNow);
+  }
+
+  function insertFigureNow(src){
+    var fig = document.createElement("figure");
+    var wrap = document.createElement("span");
+    wrap.className = "imgWrap";
+    var img = document.createElement("img");
+    img.src = src;
+    var cap = document.createElement("figcaption");
+    cap.contentEditable = "true";
+    wrap.appendChild(img);
+    wrap.appendChild(makeImgDelBtn());
+    wrap.appendChild(makeResizeGrip());
+    fig.appendChild(wrap);
+    fig.appendChild(cap);
+    fig.contentEditable = "false";
+    cap.contentEditable = "true";
+
+    editorEl.focus();
+    var sel = window.getSelection();
+    var anchorBlock = null;
+    if (sel.rangeCount && editorEl.contains(sel.anchorNode)){
+      var node = sel.anchorNode;
+      var el = node.nodeType === 1 ? node : node.parentNode;
+      // If the caret is inside an existing image (its caption), the new
+      // image goes after that image — never inside it
+      var insideFig = el && el.closest ? el.closest("figure") : null;
+      if (insideFig && editorEl.contains(insideFig)){
+        anchorBlock = insideFig;
+      } else {
+        while (node && node.parentNode !== editorEl) node = node.parentNode;
+        anchorBlock = node;
+      }
+    }
+    if (anchorBlock && anchorBlock.parentNode === editorEl){
+      editorEl.insertBefore(fig, anchorBlock.nextSibling);
+    } else {
+      editorEl.appendChild(fig);
+    }
+    // Leave an empty paragraph after the image so writing can continue
+    var after = document.createElement("p");
+    after.innerHTML = "<br>";
+    fig.parentNode.insertBefore(after, fig.nextSibling);
+    cap.focus();
+    syncCurrent(); save();
+  }
+
+  // Dragging: image files from outside become figures; dragging one of our
+  // own figures moves it. The browser's default for both would dump the
+  // image's raw text data into the note.
+  var draggedFigure = null;
+  editorEl.addEventListener("dragstart", function(e){
+    var t = e.target;
+    // The ✕ and resize grip must never become drag payloads themselves
+    if (t.nodeType === 1 && t.closest && t.closest(".delImg, .resizeImg")){
+      e.preventDefault();
+      draggedFigure = null;
+      return;
+    }
+    var fig = t.closest ? t.closest("figure") : null;
+    draggedFigure = (fig && editorEl.contains(fig)) ? fig : null;
+  });
+  editorEl.addEventListener("dragend", function(){ draggedFigure = null; });
+
+  function dropTargetBlock(e){
+    var range = document.caretRangeFromPoint
+      ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+    if (!range || !editorEl.contains(range.startContainer)) return null;
+    var node = range.startContainer;
+    if (node === editorEl) return editorEl.childNodes[range.startOffset] || null;
+    while (node && node.parentNode !== editorEl) node = node.parentNode;
+    return node;
+  }
+
+  editorEl.addEventListener("dragover", function(e){ e.preventDefault(); });
+  editorEl.addEventListener("drop", function(e){
+    // An image dragged within the note: move its figure to the drop spot
+    if (draggedFigure){
+      e.preventDefault();
+      var block = dropTargetBlock(e);
+      if (block && block !== draggedFigure){
+        editorEl.insertBefore(draggedFigure, block.nextSibling);
+      } else if (!block){
+        editorEl.appendChild(draggedFigure);
+      }
+      draggedFigure = null;
+      syncCurrent(); save();
+      return;
+    }
+
+    var files = (e.dataTransfer || {}).files || [];
+    var images = Array.from(files).filter(function(f){
+      return f.type.indexOf("image") === 0;
+    });
+    if (!images.length){
+      // Raw image data dragged in from elsewhere: make a figure of it
+      var txt = e.dataTransfer
+        ? (e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain"))
+        : "";
+      if (txt && txt.slice(0, 11) === "data:image/"){
+        e.preventDefault();
+        placeCursorAtDrop(e);
+        insertFigure(txt.split(/\s/)[0]);
+      }
+      return; // ordinary text drops keep their default behavior
+    }
+    e.preventDefault();
+    placeCursorAtDrop(e);
+    images.forEach(function(f){
+      var reader = new FileReader();
+      reader.onload = function(){ insertFigure(reader.result); };
+      reader.readAsDataURL(f);
+    });
+  });
+
+  function placeCursorAtDrop(e){
+    var range = document.caretRangeFromPoint
+      ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+    if (range && editorEl.contains(range.startContainer)){
+      var s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(range);
+    }
+  }
+
+  // Ctrl+X on a selected image: the browser copies it but refuses to
+  // delete the non-editable figure — so finish the job ourselves.
+  editorEl.addEventListener("cut", function(e){
+    var sel = window.getSelection();
+    if (!sel.rangeCount || sel.isCollapsed) return;
+    var range = sel.getRangeAt(0);
+    var frag = range.cloneContents();
+    if (!frag.querySelector("figure")) return; // plain text cut works natively
+    e.preventDefault();
+    var div = document.createElement("div");
+    div.appendChild(frag);
+    e.clipboardData.setData("text/html", div.innerHTML);
+    e.clipboardData.setData("text/plain", div.textContent);
+    range.deleteContents();
+    syncCurrent(); save();
+  });
+
+  // Paste an image straight from the clipboard
+  editorEl.addEventListener("paste", function(e){
+    var items = (e.clipboardData || {}).items || [];
+    for (var i = 0; i < items.length; i++){
+      if (items[i].type.indexOf("image") === 0){
+        e.preventDefault();
+        var reader = new FileReader();
+        reader.onload = function(){ insertFigure(reader.result); };
+        reader.readAsDataURL(items[i].getAsFile());
+        return;
+      }
+    }
+    // An HTML paste (e.g. from Word): once the browser has inserted it,
+    // adopt its images into proper figures and clean out unreadable ones
+    setTimeout(function(){
+      upgradeFigures();
+      syncCurrent();
+      save();
+    }, 0);
+  });
+
+  // ---------- Backup: export / import ----------
+  function fileSafe(name){
+    return (name || "untitled").replace(/[^a-z0-9]+/gi, "-")
+                               .replace(/^-+|-+$/g, "").toLowerCase() || "untitled";
+  }
+
+  function exportFile(obj, filename){
+    var blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // A shrunk deep copy of the notes for the "-small" export; the stored
+  // notes themselves are not touched.
+  function shrinkCopyOfData(cb){
+    var copy = JSON.parse(JSON.stringify(data));
+    var pi = 0;
+    function nextPage(){
+      if (pi >= copy.pages.length){ cb(copy); return; }
+      var p = copy.pages[pi++];
+      var tmp = document.createElement("div");
+      tmp.innerHTML = p.body || "";
+      var imgs = Array.from(tmp.querySelectorAll("img"));
+      var ii = 0;
+      (function nextImg(){
+        if (ii >= imgs.length){ p.body = tmp.innerHTML; nextPage(); return; }
+        var im = imgs[ii++];
+        var s = im.getAttribute("src") || "";
+        compressDataUrl(s, function(ns){
+          if (ns !== s) im.setAttribute("src", ns);
+          nextImg();
+        });
+      })();
+    }
+    nextPage();
+  }
+
+  document.getElementById("exportBtn").onclick = function(){
+    syncCurrent();
+    var stamp = new Date().toISOString().slice(0, 10);
+    exportFile(data, "bronote-backup-" + stamp + ".json");
+    statusEl.textContent = "Making the small copy…";
+    shrinkCopyOfData(function(small){
+      exportFile(small, "bronote-backup-" + stamp + "-small.json");
+      statusEl.textContent = "Saved";
+    });
+  };
+
+  var importInput = document.getElementById("importInput");
+  document.getElementById("importBtn").onclick = function(){ importInput.click(); };
+
+  importInput.addEventListener("change", function(){
+    var file = importInput.files[0];
+    importInput.value = "";
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var imported;
+      try {
+        imported = JSON.parse(reader.result);
+        if (!imported || !Array.isArray(imported.pages)) throw new Error();
+      } catch(e) {
+        notice("That doesn't look like a BroNote backup file.");
+        return;
+      }
+      if (!imported.pages.length){
+        notice("That backup file has no pages in it.");
+        return;
+      }
+      // If the app is basically empty, just restore the backup as-is.
+      // Otherwise: pages you already have (same identity — e.g. a weekly
+      // updated shared file) are refreshed in place, new ones are added,
+      // and your own pages are never touched.
+      syncCurrent();
+      var isEmpty = data.pages.length === 1 &&
+                    !data.pages[0].title && !data.pages[0].body;
+      var byId = {};
+      data.pages.forEach(function(p){ byId[p.id] = p; });
+      var newCount = 0, updCount = 0;
+      imported.pages.forEach(function(p){
+        if (byId[p.id]) updCount++; else newCount++;
+      });
+      var msg = isEmpty
+        ? "Load " + imported.pages.length + " page(s) from this backup?"
+        : "Load " + imported.pages.length + " page(s) from this backup?\n\n" +
+          (newCount ? newCount + " new" : "") +
+          (newCount && updCount ? ", " : "") +
+          (updCount ? updCount + " updated in place" : "") + ".";
+      dialog(msg, { okText: "Load" }).then(function(yes){
+        if (!yes) return;
+        if (isEmpty){
+          data = imported;
+          // the old pages are gone for good, so their undo trail goes too
+          deletedOps.forEach(purgeOpHistory);
+          deletedOps = [];
+          redoDeleted = [];
+        } else {
+          imported.pages.forEach(function(p){
+            var mine = byId[p.id];
+            if (mine){
+              // same page, newer content — local position, pinning and
+              // collapse state stay exactly as the user arranged them
+              mine.title = p.title;
+              mine.body = p.body;
+            } else {
+              data.pages.push(p);
+              byId[p.id] = p;
+            }
+          });
+        }
+        currentId = imported.pages[0].id;
+        openPage(currentId);
+        save();
+      });
+    };
+    reader.readAsText(file);
+  });
+
+  // ---------- Boot ----------
+  document.getElementById("addPage").onclick = function(){
+    addPage("");
+    openPage(currentId);
+    titleEl.focus();
+  };
+
+  function finishBoot(){
+    currentId = data.lastOpen;
+    if (!data.pages.length) addPage("My first page");
+    if (!data.pages.some(function(p){ return p.id === currentId; })) {
+      currentId = data.pages[0].id;
+    }
+    openPage(currentId);
+  }
+
+  openDB().then(function(d){
+    db = d;
+    return dbGet("data");
+  }).then(function(stored){
+    // First run on the new storage: bring over notes saved by the old
+    // localStorage version, if any.
+    if (!stored) stored = loadLocalStorage();
+    if (stored && stored.pages) data = stored;
+    finishBoot();
+  }).catch(function(){
+    var stored = loadLocalStorage();
+    if (stored && stored.pages) data = stored;
+    finishBoot();
+  });
+})();
+</script>
+</body>
+</html>

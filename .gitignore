@@ -1,0 +1,5 @@
+# local tool config
+.claude/
+
+# loose screenshot dumps (the chosen ones live in screenshots/)
+Screenshot *.png
